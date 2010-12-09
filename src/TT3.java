@@ -151,10 +151,10 @@ public class TT3 {
 		    System.out.println(s);
 	}
 
-	private static List<Score> parse(char[] b) {
+	static List<Score> parse(char[] b) {
 		final List<Score> ret = new ArrayList<Score>(b.length / 32);
 		int ptr = 0;
-		while (ptr < b.length - 1) {
+		while (ptr < b.length - 15) {
 			final String name = cstring(b, ptr, 16);
 			ptr += 16;
 			final double time = dword(b, ptr) / 120.;
@@ -173,7 +173,10 @@ public class TT3 {
 
 	private static String cstring(char[] b, int ptr, int i) {
 		final String s = new String(b, ptr, i);
-		return s.substring(0, s.indexOf(0));
+		final int ind = s.indexOf(0);
+		if (-1 == ind)
+			return s;
+		return s.substring(0, ind);
 	}
 
 	static char[] decode(char[] in) {
