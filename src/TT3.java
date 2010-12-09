@@ -1,4 +1,6 @@
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 
 public class TT3 {
@@ -120,15 +122,63 @@ public class TT3 {
 		0x00
 	};
 
+	static class Score {
+        private final String name;
+        private final double time;
+        private final boolean hard;
+        private final boolean online;
+
+        public Score(String name, double time, boolean hard, boolean online) {
+            this.name = name;
+            this.time = time;
+            this.hard = hard;
+            this.online = online;
+        }
+
+        @Override
+        public String toString() {
+            return "Score [name=" + name + ", time=" + time + ","
+            + (hard ? " (hard)" : "")
+            + (online ? " (online)" : "") + "]";
+        }
+	}
+
 	public static void main(String[] args) {
 		System.out.println(Arrays.equals(decode(in1), out1));
 		System.out.println(Arrays.equals(decode(in2), out2));
 
+		for (Score s : parse(out2))
+		    System.out.println(s);
 	}
 
-	private static char[] decode(char[] in) {
+	private static List<Score> parse(char[] b) {
+		final List<Score> ret = new ArrayList<Score>(b.length / 32);
+		int ptr = 0;
+		while (ptr < b.length - 1) {
+			final String name = cstring(b, ptr, 16);
+			ptr += 16;
+			final double time = dword(b, ptr) / 120.;
+			ptr += 4;
+			final boolean hard = b[ptr + 6] != 0;
+			final boolean online = b[ptr + 7] != 0;
+			ptr += 12;
+			ret.add(new Score(name, time, hard, online));
+		}
+		return ret;
+	}
+
+	private static long dword(char[] b, int ptr) {
+		return (b[ptr] + (b[ptr + 1] << 8));
+	}
+
+	private static String cstring(char[] b, int ptr, int i) {
+		final String s = new String(b, ptr, i);
+		return s.substring(0, s.indexOf(0));
+	}
+
+	static char[] decode(char[] in) {
 		char[] out = new char[9000];
-//		for (int i = 0; i < out.length; ++i)
+		// for (int i = 0; i < out.length; ++i)
 //			out[i] = Character.MAX_VALUE;
 
 		int outptr = 0;
