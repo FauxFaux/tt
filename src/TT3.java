@@ -181,8 +181,6 @@ public class TT3 {
 
 	static char[] decode(char[] in) {
 		char[] out = new char[9000];
-		// for (int i = 0; i < out.length; ++i)
-//			out[i] = Character.MAX_VALUE;
 
 		int outptr = 0;
 		int inptr = 0;
@@ -223,22 +221,8 @@ public class TT3 {
 
 						flag = esp10;
 
-						int firstcount = 4 * (highflag >> 2);
-
-						for (int i = 0; i < firstcount; ++i)
-							if (thing != 0)
-								throw new AssertionError();
-							else
-								out[outptr + i] = 0;
-
-						for (int i = 0; i < (highflag & 3); ++i)
-							if (thing != 0)
-								throw new AssertionError();
-							else
-								out[outptr + firstcount + i] = 0;
-
-						outptr += highflag;
-
+						for (int i = 0; i < highflag; ++i)
+							out[outptr++] = thing;
 					}
 				} else {
 
