@@ -5,18 +5,16 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.HashMap;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 public class TT {
 
-	private static final int FIRST_LEVEL = 1;
-
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public static void main(String[] args) throws IOException {
 
 		final Set<String> trackedUsers = new HashSet<String>();
 		trackedUsers.add("Faux");
@@ -25,59 +23,63 @@ public class TT {
 
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
 		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej"));
-		final Map<Integer, String> pwner = new HashMap<Integer, String>();
-		pwner.put(375, null);
-		pwner.put(377, null);
-		pwner.put(FIRST_LEVEL, null);
 
 		try {
 			final OutputStream os = s.getOutputStream();
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-			while (true) {
-				if (isAnyoneAlive(os, is, failed, trackedUsers)) {
-					for (Entry<Integer, String> q : pwner.entrySet()) {
-						System.out.println(q.getKey());
-						for (TT3.Score m : getScores(failed, os, is, q.getKey(), 0)) {
-							if (trackedUsers.contains(m.name)) {
-								if (null == q.getValue())
-									q.setValue(m.name);
-								else if (m.name.equals(q.getValue()))
-									q.setValue(m.name + " overtook " + q.getValue() + " on " + q.getKey());
-								break;
-							}
-						}
-					}
-					Thread.sleep(1000);
-				}
-				Thread.sleep(60000);
-			}
+
+			System.out.println(lookup(is, os, failed, trackedUsers, 464));
+			System.out.println(lookup(is, os, failed, trackedUsers, 466));
 		} finally {
 			s.close();
 			failed.close();
 		}
 	}
 
-	private static boolean isAnyoneAlive(final OutputStream os, final InputStream is,
-			final PrintStream failed,
-			final Set<String> trackedUsers) throws IOException {
-		for (TT3.Score m : getScores(failed, os, is, FIRST_LEVEL, 0))
-			if (m.online && trackedUsers.contains(m.name))
-				return true;
-		return false;
+	private static String lookup(final InputStream is, final OutputStream os, final PrintStream failed,
+			final Set<String> trackedUsers, int track) throws IOException {
+		final StringBuilder sb = new StringBuilder("For track " + track + ":");
+		int pos = 0;
+		int ourpos = 0;
+		final List<Score> s = getScores(failed, os, is, track, 0);
+		for (Score m : s) {
+			++pos;
+			if (trackedUsers.contains(m.name)) {
+				sb.append("  ").append(++ourpos).append(") ")
+				.append(m.name).append(", ")
+				.append(new DecimalFormat("#.00").format(m.time)).append("s")
+				.append(" (").append(pos).append(postfix(pos)).append(").");
+			}
+		}
+		return sb.toString();
+	}
+
+	private static String postfix(final int n)
+	{
+		if (n % 100 >= 11 && n % 100 <= 13)
+			return "th";
+
+		switch (n % 10)
+		{
+			case 1: return "st";
+			case 2: return "nd";
+			case 3: return "rd";
+		}
+		return "th";
 	}
 
 	/** @param track As displayed; apart from home screen.
 	 * @param truck 0 for free truck, upwards. */
-	private static List<TT3.Score> getScores(final PrintStream failed, final OutputStream os,
+	private static List<Score> getScores(final PrintStream failed, final OutputStream os,
 			final InputStream is, int track, int truck) throws IOException {
 		request(os, track, truck);
 		char[] nc = readPacket(is);
 
-		List<TT3.Score> pared;
+		List<Score> pared;
 		try {
-			pared = TT3.parse(TT3.decode(nc));
+			pared = parse(decode(nc));
 		} catch (Exception e) {
 			e.printStackTrace(failed);
 			for (char c : nc)
@@ -133,5 +135,141 @@ public class TT {
 		for (int i = 63; i < found; ++i)
 			nc[i - 63] = (char) (n[i] < 0 ? 256 + n[i] : n[i]);
 		return nc;
+	}
+
+	static class Score {
+        final String name;
+        private final double time;
+        private final boolean hard;
+        final boolean online;
+
+        public Score(String name, double time, boolean hard, boolean online) {
+            this.name = name;
+            this.time = time;
+            this.hard = hard;
+            this.online = online;
+        }
+
+        @Override
+        public String toString() {
+            return "Score [name=" + name + ", time=" + time + ","
+            + (hard ? " (hard)" : "")
+            + (online ? " (online)" : "") + "]";
+        }
+	}
+
+	static List<Score> parse(char[] b) {
+		final List<Score> ret = new ArrayList<Score>(b.length / 32);
+		int ptr = 0;
+		while (ptr < b.length - 30) {
+			final String name = cstring(b, ptr, 16);
+			ptr += 16;
+			final double time = dword(b, ptr) / 120.;
+			ptr += 4;
+			final boolean hard = b[ptr + 6] != 0;
+			final boolean online = b[ptr + 7] != 0;
+			ptr += 12;
+			ret.add(new Score(name, time, hard, online));
+		}
+		return ret;
+	}
+
+	private static long dword(char[] b, int ptr) {
+		return (b[ptr] + (b[ptr + 1] << 8));
+	}
+
+	private static String cstring(char[] b, int ptr, int i) {
+		final String s = new String(b, ptr, i);
+		final int ind = s.indexOf(0);
+		if (-1 == ind)
+			return s;
+		return s.substring(0, ind);
+	}
+
+	static char[] decode(char[] in) {
+		char[] out = new char[in.length * 5];
+
+		int outptr = 0;
+		int inptr = 0;
+		char flag = in[inptr++];
+		flag &= 0x1f;
+		char esp10 = flag;
+
+		while (true) {
+			if (flag >= 0x20) {
+
+				char highflag = (char) (flag >> 5);
+				int lowflag = -((flag & 0x1f) << 8);
+
+				--highflag;
+
+				if (6 == highflag) {
+					highflag = (char) (in[inptr++] + 6);
+				}
+
+				lowflag -= in[inptr++];
+
+				int sourceptr = outptr + lowflag;
+
+				if (inptr < in.length)
+					esp10 = flag = in[inptr++];
+				else
+					throw new AssertionError();
+
+				if (outptr == sourceptr) {
+
+					char thing = out[outptr - 1];
+
+					out[outptr++] = thing;
+					out[outptr++] = thing;
+					out[outptr++] = thing;
+
+					if (highflag != 0) {
+
+						flag = esp10;
+
+						for (int i = 0; i < highflag; ++i)
+							out[outptr++] = thing;
+					}
+				} else {
+
+					--sourceptr;
+
+					out[outptr++] = out[sourceptr++];
+					out[outptr++] = out[sourceptr++];
+					out[outptr++] = out[sourceptr++];
+
+					if ((highflag & 1) == 1) {
+
+						out[outptr++] = out[sourceptr++];
+
+						--highflag;
+					}
+
+					int tooutptr = outptr;
+					outptr += highflag;
+					highflag >>= 1;
+
+					while (highflag != 0) {
+						out[tooutptr++] = out[sourceptr++];
+						out[tooutptr++] = out[sourceptr++];
+
+						--highflag;
+					}
+				}
+			} else {
+				++flag;
+				int inend = inptr + flag;
+				if (inend >= in.length)
+					return Arrays.copyOfRange(out, 0, outptr);
+
+				for (int i = 0; i < flag; ++i)
+					out[outptr++] = in[inptr++];
+
+				flag = in[inptr++];
+				esp10 = flag;
+			}
+		}
+
 	}
 }
