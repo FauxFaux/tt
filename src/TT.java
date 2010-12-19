@@ -9,10 +9,15 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.MapMaker;
 
 public class TT {
 
@@ -31,9 +36,15 @@ public class TT {
 		final Set<String> trackedUsers = ImmutableSet.of(
 				"Faux",
 				"Silver",
-				"ajmiles",
-				"cocksd"
+				"ajmiles"
 				);
+
+		final Map<String, AtomicInteger> results = new MapMaker().makeComputingMap(new Function<String, AtomicInteger>() {
+			@Override
+			public AtomicInteger apply(String input) {
+				return new AtomicInteger();
+			}
+		});
 
 		final List<Track> tracks = ImmutableList.of(
 				new Track("warming up", 1),
@@ -58,31 +69,42 @@ public class TT {
 			setup(os, is);
 
 			for (Track t : tracks) {
-				System.out.println("For track " + t.name + ": " + lookup(is, os, failed, trackedUsers, t.id));
+				final StringBuilder sb = new StringBuilder(t.name).append(": ");
+				int ourpos = 0;
+				for (Score q : getFilteredScores(is, os, failed, trackedUsers, t.id)) {
+					if (ourpos < trackedUsers.size())
+						results.get(q.name).addAndGet(trackedUsers.size() - ourpos);
+					++ourpos;
+					format(sb, q, ourpos);
+				}
+
+				System.out.println(sb);
 				Thread.sleep(1000);
 			}
+			System.out.println(results);
 		} finally {
 			s.close();
 			failed.close();
 		}
 	}
 
-	private static String lookup(final InputStream is, final OutputStream os, final PrintStream failed,
+	private static List<Score> getFilteredScores(final InputStream is, final OutputStream os, final PrintStream failed,
 			final Set<String> trackedUsers, int track) throws IOException {
-		final StringBuilder sb = new StringBuilder();
-		int pos = 0;
-		int ourpos = 0;
 		final List<Score> s = getScores(failed, os, is, track, 0);
+		final List<Score> filtered = Lists.newArrayListWithCapacity(trackedUsers.size());
 		for (Score m : s) {
-			++pos;
 			if (trackedUsers.contains(m.name)) {
-				sb.append("  ").append(++ourpos).append(") ")
-				.append(m.name).append(", ")
-				.append(new DecimalFormat("#.00").format(m.time)).append("s")
-				.append(" (").append(pos).append(postfix(pos)).append(").");
+				filtered.add(m);
 			}
 		}
-		return sb.toString();
+		return filtered;
+	}
+
+	private static void format(final StringBuilder sb, Score m, int ourpos) {
+		sb.append("  ").append(ourpos).append(") ")
+		.append(m.name).append(", ")
+		.append(new DecimalFormat("#.00").format(m.time)).append("s")
+		.append(" (").append(m.pos).append(postfix(m.pos)).append(").");
 	}
 
 	private static String postfix(final int n)
@@ -106,9 +128,8 @@ public class TT {
 		request(os, track, truck);
 		char[] nc = readPacket(is);
 
-		List<Score> pared;
 		try {
-			pared = parse(decode(nc));
+			return parse(decode(nc));
 		} catch (Exception e) {
 			e.printStackTrace(failed);
 			for (char c : nc)
@@ -116,7 +137,6 @@ public class TT {
 			failed.flush();
 			throw new RuntimeException(e);
 		}
-		return pared;
 	}
 
 	private static void request(final OutputStream os, int track, int truck) throws IOException {
@@ -171,9 +191,11 @@ public class TT {
         private final double time;
         private final boolean hard;
         final boolean online;
+		private final int pos;
 
-        public Score(String name, double time, boolean hard, boolean online) {
-            this.name = name;
+        public Score(int pos, String name, double time, boolean hard, boolean online) {
+        	this.pos = pos;
+			this.name = name;
             this.time = time;
             this.hard = hard;
             this.online = online;
@@ -190,6 +212,7 @@ public class TT {
 	static List<Score> parse(char[] b) {
 		final List<Score> ret = new ArrayList<Score>(b.length / 32);
 		int ptr = 0;
+		int pos = 0;
 		while (ptr < b.length - 30) {
 			final String name = cstring(b, ptr, 16);
 			ptr += 16;
@@ -198,7 +221,7 @@ public class TT {
 			final boolean hard = b[ptr + 6] != 0;
 			final boolean online = b[ptr + 7] != 0;
 			ptr += 12;
-			ret.add(new Score(name, time, hard, online));
+			ret.add(new Score(++pos, name, time, hard, online));
 		}
 		return ret;
 	}
