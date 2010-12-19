@@ -8,30 +8,59 @@ import java.net.Socket;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
 public class TT {
 
-	public static void main(String[] args) throws IOException {
+	static class Track {
+		private final int id;
+		private final String name;
 
-		final Set<String> trackedUsers = new HashSet<String>();
-		trackedUsers.add("Faux");
-		trackedUsers.add("Silver");
-		trackedUsers.add("ajmiles");
+		public Track(String name, int id) {
+			this.name = name;
+			this.id = id;
+		}
+	}
+
+	public static void main(String[] args) throws IOException, InterruptedException {
+
+		final Set<String> trackedUsers = ImmutableSet.of(
+				"Faux",
+				"Silver",
+				"ajmiles",
+				"cocksd"
+				);
+
+		final List<Track> tracks = ImmutableList.of(
+				new Track("warming up", 1),
+				new Track("first shortcuts", 5),
+				new Track("crack down", 0),
+				new Track("walljump", 3),
+				new Track("reverse parking", 423),
+				new Track("death slope", 4),
+				new Track("overloaded truck", 6),
+				new Track("reversing fast", 7),
+				new Track("sky fly", 8),
+				new Track("alpinism", 9),
+				new Track("overpass", 10)
+				);
 
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
-		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej"));
+		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
 
 		try {
 			final OutputStream os = s.getOutputStream();
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-
-			System.out.println(lookup(is, os, failed, trackedUsers, 464));
-			System.out.println(lookup(is, os, failed, trackedUsers, 466));
+			for (Track t : tracks) {
+				System.out.println("For track " + t.name + ": " + lookup(is, os, failed, trackedUsers, t.id));
+				Thread.sleep(1000);
+			}
 		} finally {
 			s.close();
 			failed.close();
@@ -40,7 +69,7 @@ public class TT {
 
 	private static String lookup(final InputStream is, final OutputStream os, final PrintStream failed,
 			final Set<String> trackedUsers, int track) throws IOException {
-		final StringBuilder sb = new StringBuilder("For track " + track + ":");
+		final StringBuilder sb = new StringBuilder();
 		int pos = 0;
 		int ourpos = 0;
 		final List<Score> s = getScores(failed, os, is, track, 0);
