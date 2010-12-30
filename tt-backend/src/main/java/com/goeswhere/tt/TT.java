@@ -34,7 +34,7 @@ public class TT {
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-
+		final DAO dao = TTLevelCache.dao();
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
 		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
 
@@ -43,18 +43,30 @@ public class TT {
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(500);
+			final int pages = 1;
+			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * 25);
 			write(os, SortOrder.DEFAULT.forPage(0));
 			readFreeTracks(is, tracks);
-			final int pages = 17;
 			for (int i = 0; i < pages; ++i) {
-				Thread.sleep(1000);
+				Thread.sleep(100);
 				write(os, SortOrder.NEWEST.forPage(i));
 				readFreeTracks(is, tracks);
-				System.out.println((int)(100 * (i+1) / (float)pages) + "% done");
+				System.out.printf("Stage 1 / 2: %3d%% done\n", (int)(100 * (i+1) / (float)pages));
 			}
 
-			System.out.println(tracks);
+			for (int i = 0; i < tracks.size(); ++i) {
+				Thread.sleep(1000);
+				int id = tracks.get(i);
+				final List<Score> scores = getScores(failed, os, is, id, 0);
+				final List<Object[]> times = Lists.newArrayListWithCapacity(scores.size());
+				int pos = 0;
+				for (Score sc : scores) {
+					times.add(new Object[] { id, ++pos, sc.name, sc.time, sc.hard } );
+				}
+
+				dao.saveTrackTimes(id, times);
+				System.out.printf("Stage 2 / 2: %3d%% done\n", (int)(100 * (i+1) / (float)tracks.size()));
+			}
 
 		} finally {
 			s.close();
