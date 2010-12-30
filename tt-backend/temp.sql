@@ -4,3 +4,7 @@ create table if not exists highscore(track integer, pos integer, player varchar(
 select * from highscore where pos = 1
 select * from track_names;
 delete from  track_names;
+delete from highscore;
+
+select track n, name, player pwner from highscore inner join track_names using (track) where pos = 1 order by track;
+select player,count(*) cnt from (select player from highscore where pos = 1) group by player order by cnt desc, player;

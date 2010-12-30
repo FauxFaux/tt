@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +45,7 @@ public class TT {
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-			final int pages = 1;
+			final int pages = 17;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * 25);
 			write(os, SortOrder.DEFAULT.forPage(0));
 			readFreeTracks(is, tracks);
@@ -54,6 +55,8 @@ public class TT {
 				readFreeTracks(is, tracks);
 				System.out.printf("Stage 1 / 2: %3d%% done\n", (int)(100 * (i+1) / (float)pages));
 			}
+
+			long start = new Date().getTime();
 
 			for (int i = 0; i < tracks.size(); ++i) {
 				Thread.sleep(1000);
@@ -66,7 +69,9 @@ public class TT {
 				}
 
 				dao.saveTrackTimes(id, times);
-				System.out.printf("Stage 2 / 2: %3d%% done\n", (int)(100 * (i+1) / (float)tracks.size()));
+				final float perc = (i+1) / (float)tracks.size();
+				final Date eta = new Date((long) (start+(new Date().getTime()-start)/perc));
+				System.out.printf("Stage 2 / 2: %3d%% done, eta %s.\n", (int)(100 * perc), eta);
 			}
 
 		} finally {
