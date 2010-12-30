@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,7 +34,7 @@ public class TT {
 		}
 	}
 
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public static void main(String[] args) throws IOException, InterruptedException, SQLException, ClassNotFoundException {
 		final DAO dao = TTLevelCache.dao();
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
 		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
