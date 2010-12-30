@@ -13,54 +13,27 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.MapMaker;
 
 public class TT {
 
-	static class Track {
-		private final int id;
-		private final String name;
+	private static class ListElement {
+		private final int no;
+		private final boolean costs;
 
-		public Track(String name, int id) {
-			this.name = name;
-			this.id = id;
+		public ListElement(int no, boolean costs) {
+			this.no = no;
+			this.costs = costs;
+		}
+
+		@Override
+		public String toString() {
+			return "ListElement [no=" + no + (costs ? ", NON FREE" : "") + "]";
 		}
 	}
 
-	public static void main(String[] args) throws IOException, InterruptedException {
-
-		final Set<String> trackedUsers = ImmutableSet.of(
-				"[UWCS] Faux",
-				"[UWCS] Silver",
-				"[UWCS] ajmiles"
-				);
-
-		final Map<String, AtomicInteger> results = new MapMaker().makeComputingMap(new Function<String, AtomicInteger>() {
-			@Override
-			public AtomicInteger apply(String input) {
-				return new AtomicInteger();
-			}
-		});
-
-		final List<Track> tracks = ImmutableList.of(
-				new Track("warming up", 1),
-				new Track("first shortcuts", 5),
-				new Track("crack down", 0),
-				new Track("walljump", 3),
-				new Track("reverse parking", 423),
-				new Track("death slope", 4),
-				new Track("overloaded truck", 6),
-				new Track("reversing fast", 7),
-				new Track("sky fly", 8),
-				new Track("alpinism", 9),
-				new Track("overpass", 10)
-				);
+	public static void main(String[] args) throws IOException {
 
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
 		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
@@ -70,36 +43,25 @@ public class TT {
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-			write(os, SortOrder.NEWEST.forPage(0));
-			char[] c2 = readPacket(is, 3);
-			format(c2, c2.length);
-			char[] c = decode(c2);
-			format(c, c.length);
-			write(os, new byte[] { 6, 0, 10, 1, 11, 0, 0, 0,
-					               6, 0, 10, 1, 12, 0, 0, 0, });
-			consumeAvailable(is);
-
-			if (true)
-				return;
-
-			for (Track t : tracks) {
-				final StringBuilder sb = new StringBuilder(t.name).append(": ");
-				int ourpos = 0;
-				for (Score q : getFilteredScores(is, os, failed, trackedUsers, t.id)) {
-					if (ourpos < trackedUsers.size())
-						results.get(q.name).addAndGet(trackedUsers.size() - ourpos);
-					++ourpos;
-					format(sb, q, ourpos);
-				}
-
-				System.out.println(sb);
-				Thread.sleep(1000);
-			}
-			System.out.println(results);
+			write(os, SortOrder.DEFAULT.forPage(0));
+			for (ListElement l : parseListPacket(decode(readPacket(is, 3))))
+				System.out.println(l);
 		} finally {
 			s.close();
 			failed.close();
 		}
+	}
+
+	private static List<ListElement> parseListPacket(char[] c) {
+		int ptr = 0x18;
+		List<ListElement> l = Lists.newArrayListWithCapacity(25);
+		while (ptr < c.length - 1) {
+			int no = readTwo(c, ptr);
+			boolean costs = c[0x1a0 + ptr] != 0;
+			l.add(new ListElement(no, costs));
+			ptr += 0x1b4;
+		}
+		return l;
 	}
 
 	private static void readNamesPacket(char[] q, Map<Integer, String> names) {
@@ -122,7 +84,7 @@ public class TT {
 		byte[] b = new byte[length];
 		for (int i = 0; i < length; ++i)
 			b[i] = (byte) c[i];
-		format(b, length);
+		debugOutput(b, length);
 	}
 
 	private static List<Score> getFilteredScores(final InputStream is, final OutputStream os, final PrintStream failed,
@@ -162,7 +124,7 @@ public class TT {
 	 * @param truck 0 for free truck, upwards. */
 	private static List<Score> getScores(final PrintStream failed, final OutputStream os,
 			final InputStream is, int track, int truck) throws IOException {
-		request(os, track, truck);
+		requestScores(os, track, truck);
 		char[] nc = readPacket(is, 63);
 
 		try {
@@ -176,13 +138,13 @@ public class TT {
 		}
 	}
 
-	private static void request(final OutputStream os, int track, int truck) throws IOException {
+	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
 		byte[] req = new byte[] { 0x09, 0, 0x19, (byte) (track & 0xff), (byte) ((track >> 8) & 0xff),
 				(byte) ((track >> 16) & 0xff), (byte) ((track >> 24) & 0xff), (byte) truck, 0, 0, 0 };
 		write(os, req);
 	}
 
-	static enum SortOrder {
+	private static enum SortOrder {
 		DEFAULT(0),
 		NEWEST(2),
 		USERS(1),
@@ -216,12 +178,6 @@ public class TT {
 				50, 46, 100, 108, 108, 59, 99, 111, 114, 101, 115, 58, 52, 59, 49, 51, 50, 56, 120, 56, 52, 48, 59,
 				100, 101, 116, 97, 105, 108, 58, 50, 59, };
 
-//		final byte[] requestStartScreen = new byte[] { 0x04, 00, 0x09, 00, 02, 00, };
-////                                   First page of new:  04  00    09  00  02  00
-////                                  Second page of new:  04  00    09  00  02  01
-////                                  First page of best:  04  00    09  00  01  00
-//		// best rated: 3
-//		// alphabetic: 5
 		write(os, initial);
 		consumeAvailable(is);
 		write(os, login);
@@ -237,10 +193,10 @@ public class TT {
 	private static void consumeAvailable(final InputStream is) throws IOException {
 		byte[] first = new byte[90000];
 		int len = is.read(first);
-		format(first, len);
+		debugOutput(first, len);
 	}
 
-	private static void format(byte[] first, int len) {
+	private static void debugOutput(byte[] first, int len) {
 		final int WIDTH = 16;
 		System.out.print("       ");
 		for (int i = 0; i < WIDTH; ++i) {
@@ -291,11 +247,15 @@ public class TT {
 			int ind = l*WIDTH+i;
 			if (ind < len) {
 				byte chr = first[ind];
-				System.out.printf("%c", chr >= 32 && chr <= 128 ?
+				System.out.printf("%c", isPrint((char)chr) ?
 						(char)chr : chr == 0 ? '_' : '.');
 			} else
 				System.out.print(" ");
 		}
+	}
+
+	private static boolean isPrint(char c) {
+		return c >= 32 && c <= 128;
 	}
 
 	private static void addBreak(final int WIDTH, int i) {
@@ -312,7 +272,7 @@ public class TT {
 		return nc;
 	}
 
-	static class Score {
+	private static class Score {
         final String name;
         private final double time;
         private final boolean hard;
@@ -335,7 +295,7 @@ public class TT {
         }
 	}
 
-	static List<Score> parse(char[] b) {
+	private static List<Score> parse(char[] b) {
 		final List<Score> ret = new ArrayList<Score>(b.length / 32);
 		int ptr = 0;
 		int pos = 0;
@@ -364,7 +324,7 @@ public class TT {
 		return s.substring(0, ind);
 	}
 
-	static char[] decode(char[] in) {
+	private static char[] decode(char[] in) {
 		char[] out = new char[in.length * 20];
 
 		int outptr = 0;
