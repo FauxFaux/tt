@@ -4,9 +4,16 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.stereotype.Component;
 
+@Component
 public class TTLevelCache {
+
 	public static void main(String[] args) throws IOException {
+		final ApplicationContext context = new ClassPathXmlApplicationContext("app-config.xml");
+		final DAO lc = context.getBean(DAO.class);
 		final FileInputStream fis = new FileInputStream(args[0]);
 		try {
 			while (true) {
@@ -18,13 +25,12 @@ public class TTLevelCache {
 				fis.skip(30);
 				String name = cstring(fis);
 
-				System.out.println(num + ": " + name);
+				lc.saveTrackNumber(num, name);
 				fis.skip(len - 39 - 16);
 			}
 		} finally {
 			fis.close();
 		}
-
 	}
 
 	private static String cstring(InputStream fis) throws IOException {
