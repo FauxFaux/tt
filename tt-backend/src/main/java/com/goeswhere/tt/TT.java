@@ -33,7 +33,7 @@ public class TT {
 		}
 	}
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, InterruptedException {
 
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
 		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
@@ -43,13 +43,29 @@ public class TT {
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
+			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(500);
 			write(os, SortOrder.DEFAULT.forPage(0));
-			for (ListElement l : parseListPacket(decode(readPacket(is, 3))))
-				System.out.println(l);
+			readFreeTracks(is, tracks);
+			final int pages = 17;
+			for (int i = 0; i < pages; ++i) {
+				Thread.sleep(1000);
+				write(os, SortOrder.NEWEST.forPage(i));
+				readFreeTracks(is, tracks);
+				System.out.println((int)(100 * (i+1) / (float)pages) + "% done");
+			}
+
+			System.out.println(tracks);
+
 		} finally {
 			s.close();
 			failed.close();
 		}
+	}
+
+	private static void readFreeTracks(final InputStream is, final List<Integer> tracks) throws IOException {
+		for (ListElement l : parseListPacket(decode(readPacket(is, 3))))
+			if (!l.costs)
+				tracks.add(l.no);
 	}
 
 	private static List<ListElement> parseListPacket(char[] c) {
