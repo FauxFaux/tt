@@ -3,10 +3,8 @@ package com.goeswhere.tt;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -15,11 +13,6 @@ public class TTLevelCache {
 
 	public static void main(String[] args) throws IOException, SQLException, ClassNotFoundException {
 		final DAO lc = dao();
-		final Connection conn = DriverManager.getConnection("jdbc:sqlite:sample2.db");
-		Statement stat = conn.createStatement();
-		stat.execute("drop table track_names");
-		stat.execute("create table if not exists track_names(track integer primary key, name varchar(16));");
-		stat.execute("begin");
 
 		final FileInputStream fis = new FileInputStream(args[0]);
 		final List<Object[]> l = Lists.newArrayListWithExpectedSize(500);
