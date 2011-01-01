@@ -8,12 +8,10 @@ import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.sql.SQLException;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.google.common.collect.Lists;
 
@@ -121,39 +119,6 @@ public class TT {
 		for (int i = 0; i < length; ++i)
 			b[i] = (byte) c[i];
 		debugOutput(b, length);
-	}
-
-	private static List<Score> getFilteredScores(final InputStream is, final OutputStream os, final PrintStream failed,
-			final Set<String> trackedUsers, int track) throws IOException {
-		final List<Score> s = getScores(failed, os, is, track, 0);
-		final List<Score> filtered = Lists.newArrayListWithCapacity(trackedUsers.size());
-		for (Score m : s) {
-			if (trackedUsers.contains(m.name)) {
-				filtered.add(m);
-			}
-		}
-		return filtered;
-	}
-
-	private static void format(final StringBuilder sb, Score m, int ourpos) {
-		sb.append("  ").append(ourpos).append(") ")
-		.append(m.name).append(", ")
-		.append(new DecimalFormat("#.00").format(m.time)).append("s")
-		.append(" (").append(m.pos).append(postfix(m.pos)).append(").");
-	}
-
-	private static String postfix(final int n)
-	{
-		if (n % 100 >= 11 && n % 100 <= 13)
-			return "th";
-
-		switch (n % 10)
-		{
-			case 1: return "st";
-			case 2: return "nd";
-			case 3: return "rd";
-		}
-		return "th";
 	}
 
 	/** @param track As displayed; apart from home screen.
@@ -309,10 +274,10 @@ public class TT {
 	}
 
 	private static class Score {
-        final String name;
+        private final String name;
         private final double time;
         private final boolean hard;
-        final boolean online;
+        private final boolean online;
 		private final int pos;
 
         public Score(int pos, String name, double time, boolean hard, boolean online) {
@@ -325,7 +290,7 @@ public class TT {
 
         @Override
         public String toString() {
-            return "Score [name=" + name + ", time=" + time + ","
+            return "Score [name=" + name + ", time=" + time + ", pos=" + pos + ","
             + (hard ? " (hard)" : "")
             + (online ? " (online)" : "") + "]";
         }
