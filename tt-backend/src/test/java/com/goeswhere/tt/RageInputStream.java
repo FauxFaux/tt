@@ -14,8 +14,13 @@ public class RageInputStream extends InputStream {
 	}
 
 	@Override
+	public int read(byte[] b) throws IOException {
+		return read(b, 0, b.length);
+	}
+
+	@Override
 	public int read(byte[] b, int off, int len) throws IOException {
-		return un.read(b, off, fuzzDown(len));
+		return un.read(b, off, fuzzDown(Math.min(un.available() + 1, len)));
 	}
 
 	@Override

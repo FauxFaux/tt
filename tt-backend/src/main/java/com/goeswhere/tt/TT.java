@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import com.google.common.base.Charsets;
@@ -50,6 +51,7 @@ public class TT {
 			final int pages = 1;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
 			write(os, SortOrder.DEFAULT.forPage(0));
+			consumeToFile(is, "defaulttracks.tst");
 			readFreeTracks(is, tracks);
 			for (int i = 0; i < pages; ++i) {
 				Thread.sleep(100);
@@ -84,7 +86,7 @@ public class TT {
 		}
 	}
 
-	private static void readFreeTracks(final InputStream is, final List<Integer> tracks) throws IOException {
+	static void readFreeTracks(final InputStream is, final Collection<Integer> tracks) throws IOException {
 		char[] pkt = readPacket(is, 3);
 		try {
 			for (ListElement l : parseListPacket(decode(pkt)))
@@ -109,7 +111,7 @@ public class TT {
 
 	private static List<ListElement> parseListPacket(char[] c) {
 		int ptr = 0x18;
-		List<ListElement> l = Lists.newArrayListWithCapacity(25);
+		List<ListElement> l = Lists.newArrayListWithCapacity(ESTIMATED_TRACKS_PER_PAGE);
 		while (ptr < c.length - 1) {
 			int no = readTwo(c, ptr);
 			boolean costs = c[0x1a0 + ptr] != 0;
@@ -394,7 +396,7 @@ public class TT {
 		return s.substring(0, ind);
 	}
 
-	public static char[] decode(byte[] in) {
+	static char[] decode(byte[] in) {
 		char[] cin = new char[in.length];
 		for (int i = 0; i < in.length; ++i)
 			cin[i] = charise(in[i]);
