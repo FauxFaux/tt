@@ -1,0 +1,161 @@
+<project name="jfastlz" default="usage">
+
+
+	<property name="src.dir" value="src"/>
+	<property name="build.dir" value="build"/>
+	<property name="release.dir" value="release"/>
+	<property name="test.data.dir" value="${build.dir}/test" />
+
+	<!-- sets tstamp properties for later use -->
+	<tstamp>
+		<format property="touch.time" pattern="MM/dd/yyyy hh:mm aa"/>
+	</tstamp>
+
+	<property file="build.properties"/>
+
+	<path id="master-classpath">
+		<fileset dir="${external.lib.dir}">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+
+	<path id="test-classpath">
+		<path refid="master-classpath" />
+	</path>
+
+	<target name="usage">
+		<echo message=""/>
+		<echo message="${project.name} build file"/>
+		<echo message="-----------------------------------"/>
+		<echo message=""/>
+		<echo message="Available targets are:"/>
+		<echo message=""/>
+		<echo message="build     --> Build the application"/>
+		<echo message="jar       --> Creates jar file"/>
+		<echo message="release   --> Copies jar to release dir"/>
+		<echo message="clean     --> Cleans all generated files"/>
+		<echo message="test      --> Runs unit tests"/>
+		<echo message=""/>
+	</target>
+
+	<target name="prepare" description="makes output directories">
+		<mkdir dir="${build.dir}"/>
+		<mkdir dir="${test.data.dir}"/>
+		<mkdir dir="${build.dir}/META-INF"/>
+	</target>
+
+	<target name="clean" description="Clean output directories">
+		<delete dir="${build.dir}"/>
+		<delete dir="${test.data.dir}"/>
+	</target>
+
+	<target name="build" depends="clean, prepare" description="Compile main source tree java files">
+		<copy todir="${build.dir}" preservelastmodified="true">
+			<fileset dir="${src.dir}">
+				<include name="**/*.*"/>
+				<include name="**/*" />
+				<exclude name="**/*.java"/>
+			</fileset>
+		</copy>
+		<copy todir="${build.dir}/${external.lib.dir}">
+			<fileset dir="${external.lib.dir}">
+				<include name="*.jar"/>
+			</fileset>
+		</copy>
+		<pathconvert property="mf.classpath" pathsep=" ">
+			<path refid="master-classpath" />
+			<chainedmapper>
+				<flattenmapper />
+				<globmapper from="*" to="${external.lib.dir}/*" />
+			</chainedmapper>
+		</pathconvert>
+
+
+		<javac destdir="${build.dir}" debug="true" deprecation="false" optimize="false" failonerror="true" nowarn="true">
+			<src path="${src.dir}"/>
+			<classpath refid="master-classpath"/>
+		</javac>
+		<manifest file="${build.dir}/META-INF/MANIFEST.MF">
+			<attribute name="Built-By" value="${user.name}"/>
+			<!-- <attribute name="Main-Class" value="${main.class}"/> -->
+			<attribute name="Class-Path" value="${mf.classpath} ." />
+			<section name="${project.name}">
+				<attribute name="Specification-Title" value="${project.name}"/>
+				<attribute name="Specification-Vendor" value="${project.vendor}"/>
+				<attribute name="Specification-Date" value="${touch.time}"/>
+				<!--  <attribute name="Implementation-Title" value="common"/> -->
+				<attribute name="Implementation-Version" value="${project.version}"/>
+				<!--  <attribute name="Implementation-Vendor" value="Example Corp."/> -->
+			</section>
+		</manifest>
+
+	</target>
+
+	<target name="jar" depends="build" description="creates jar file from build">
+		<jar destfile="${build.dir}/${project.name}-${project.version}.jar" 
+		     manifest="${build.dir}/META-INF/MANIFEST.MF">
+			<fileset dir="${build.dir}">
+				<include name="**/*.*"/>
+				<include name="**/*"/>
+				<exclude name="${external.lib.dir}" />
+				<exclude name="${external.lib.dir}/**/*" />
+				<exclude name="${external.lib.dir}/**/*.*" />
+				<!-- don't want the unit test classes in the jar -->
+				<exclude name="**/*Test*" /> 
+				<exclude name="**/test" />
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="test" depends="build" description="Runs the unit tests for the project">
+		<junit printsummary="true" 
+			   errorproperty="test.failed"
+			   haltonfailure="true" >
+
+			<classpath refid="test-classpath" />
+			<classpath>
+         <pathelement path="${build.dir}"/>
+      </classpath>
+
+			<formatter type="brief" usefile="false"/>
+			<formatter type="xml" usefile="true" />
+
+			<test name="${testcase}" todir="${test.data.dir}" if="testcase" />
+
+			<batchtest todir="${test.data.dir}">
+				<fileset dir="${build.dir}" includes="**/*Test.class" />
+			</batchtest>
+
+		</junit>
+		<junitreport todir="${test.data.dir}">
+			<fileset dir="${test.data.dir}">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<report format="frames" todir="${test.data.dir}" />
+		</junitreport>
+
+		<fail message="Tests failed. Check log and/or reports." if="test.failed" />
+
+	</target>
+
+	<target name="release" depends="jar" description="Copies jar to release dir">
+		<mkdir dir="${release.dir}/${project.name}-${project.version}"/>
+		<delete includeemptydirs="true">
+	    		<fileset dir="${release.dir}/${project.name}-${project.version}" includes="**/*"/>
+	  </delete>
+		<copy file="${build.dir}/${project.name}-${project.version}.jar" tofile="${release.dir}/${project.name}-${project.version}/${project.name}-${project.version}.jar" />
+		<copy todir="${release.dir}/${project.name}-${project.version}/${external.lib.dir}">
+			<fileset dir="${external.lib.dir}">
+				<include name="*.jar" />
+				<exclude name="junit*.jar" />
+			</fileset>
+		</copy>
+		<copy todir="${release.dir}/${project.name}-${project.version}/">
+			<fileset dir="." includes="*.sh"/>
+			<fileset dir="." includes="*.bat"/>
+			<fileset dir="." includes="*.properties" excludes="build.properties"/>
+			<fileset dir="." includes="*.xml" excludes="build.xml" />
+		</copy>
+	</target>
+
+</project>
