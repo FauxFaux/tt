@@ -4,6 +4,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -43,7 +44,8 @@ public class TT {
 		try {
 			final OutputStream os = s.getOutputStream();
 			final InputStream is = s.getInputStream();
-			setup(os, is);
+			final IOHelper h = IOHelper.loggingToStdErr(is);
+			setup(os, h);
 
 			final int pages = 1;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
@@ -95,6 +97,16 @@ public class TT {
 		}
 	}
 
+	static void discardWelcomePacket(final IOHelper h) throws IOException {
+		h.readOrWarn("start of welcome (unknown; probably header)",
+				new byte[] { 0x11, 0x00, 0x05 });
+		h.readName();
+		h.readOrWarn("middle of welcome (unknown)",
+				new byte[] { 0x05, 0x00, });
+		h.skip(5); // unknown field
+		decode(h.read(h.readTwo()));
+	}
+
 	private static List<ListElement> parseListPacket(char[] c) {
 		int ptr = 0x18;
 		List<ListElement> l = Lists.newArrayListWithCapacity(25);
@@ -118,7 +130,7 @@ public class TT {
 		return ret;
 	}
 
-	private static void skip(InputStream is, long length) throws IOException {
+	static void skip(InputStream is, long length) throws IOException {
 		long rem = length;
 		while (rem != 0)
 			rem -= is.skip(rem);
@@ -128,7 +140,7 @@ public class TT {
 		return (q[ptr + 1] * 0x100) + q[ptr];
 	}
 
-	private static int readTwo(InputStream is) throws IOException {
+	static int readTwo(InputStream is) throws IOException {
 		return read(is) + read(is) * 0x100;
 	}
 
@@ -137,6 +149,10 @@ public class TT {
 		if (-1 == read)
 			throw new IOException("End of stream");
 		return read;
+	}
+
+	public static void format(char[] c) {
+		format(c, c.length);
 	}
 
 	static void format(char[] c, int length) {
@@ -190,7 +206,7 @@ public class TT {
 		}
 	}
 
-	private static void setup(final OutputStream os, final InputStream is) throws IOException {
+	private static void setup(final OutputStream os, IOHelper h) throws IOException {
 
 		final byte[] initial = new byte[] {
 				0x0d, 0x00, 0x04, 0x7e, (byte) 0xc1, 0x36, 0x65, 0x10,
@@ -207,7 +223,7 @@ public class TT {
 				100, 101, 116, 97, 105, 108, 58, 50, 59, };
 
 		write(os, initial);
-		consumeAvailable(is);
+		discardWelcomePacket(h);
 		write(os, login);
 		// consumeAvailable(is); // sometimes?
 		write(os, privacies);
@@ -235,60 +251,65 @@ public class TT {
 	}
 
 	private static void debugOutput(byte[] first, int len) {
-		final int WIDTH = 16;
-		System.out.print("       ");
-		for (int i = 0; i < WIDTH; ++i) {
-			addBreak(WIDTH, i);
-			System.out.printf("%2x ", i);
-		}
-		System.out.print("  ");
-		for (int i = 0; i < WIDTH; ++i) {
-			addBreak(WIDTH, i);
-			System.out.printf("%x", i);
-		}
-		System.out.print("  ");
-		for (int i = 0; i < WIDTH; ++i)
-			System.out.printf("%x", i);
+		final PrintStream out = System.out;
+		debugOutput(first, len, out);
+	}
 
-		System.out.println();
+	static void debugOutput(byte[] first, int len, final PrintStream out) {
+		final int WIDTH = 16;
+		out.print("       ");
+		for (int i = 0; i < WIDTH; ++i) {
+			addBreak(WIDTH, i, out);
+			out.printf("%2x ", i);
+		}
+		out.print("  ");
+		for (int i = 0; i < WIDTH; ++i) {
+			addBreak(WIDTH, i, out);
+			out.printf("%x", i);
+		}
+		out.print("  ");
+		for (int i = 0; i < WIDTH; ++i)
+			out.printf("%x", i);
+
+		out.println();
 		final StringBuilder array = new StringBuilder(len * 10).append("char[] c = new char[] { ");
 		for (int l = 0; l <= len / WIDTH; ++l) {
-			System.out.printf("%5x  ", l*WIDTH);
+			out.printf("%5x  ", l*WIDTH);
 			for (int i = 0; i < WIDTH; ++i) {
-				addBreak(WIDTH, i);
+				addBreak(WIDTH, i, out);
 				int ind = l*WIDTH+i;
 				if (ind < len) {
-					System.out.printf("%2x ", first[ind]);
+					out.printf("%2x ", first[ind]);
 					array.append("(char)0x")
 						.append(String.format("%02x", first[ind]))
 						.append(", ");
 				}
 				else
-					System.out.print("   ");
+					out.print("   ");
 			}
 
-			System.out.print("  ");
-			printAscii(first, len, WIDTH, l, true);
-			System.out.print("  ");
-			printAscii(first, len, WIDTH, l, false);
-			System.out.println();
+			out.print("  ");
+			printAscii(first, len, WIDTH, l, true, out);
+			out.print("  ");
+			printAscii(first, len, WIDTH, l, false, out);
+			out.println();
 			array.append("\n                        ");
 		}
 		array.append("};");
-		System.out.println(array);
+		out.println(array);
 	}
 
-	private static void printAscii(byte[] first, int len, final int WIDTH, int l, boolean doBreak) {
+	private static void printAscii(byte[] first, int len, final int WIDTH, int l, boolean doBreak, PrintStream out) {
 		for (int i = 0; i < WIDTH; ++i) {
 			if (doBreak)
-				addBreak(WIDTH, i);
+				addBreak(WIDTH, i, out);
 			int ind = l*WIDTH+i;
 			if (ind < len) {
 				byte chr = first[ind];
-				System.out.printf("%c", isPrint((char)chr) ?
+				out.printf("%c", isPrint((char)chr) ?
 						(char)chr : chr == 0 ? '_' : '.');
 			} else
-				System.out.print(" ");
+				out.print(" ");
 		}
 	}
 
@@ -296,9 +317,9 @@ public class TT {
 		return c >= 32 && c <= 128;
 	}
 
-	private static void addBreak(final int WIDTH, int i) {
+	private static void addBreak(final int WIDTH, int i, PrintStream out) {
 		if (i % (WIDTH/4) == 0)
-			System.out.print(" ");
+			out.print(" ");
 	}
 
 	private static char[] readPacket(final InputStream is, int offset) throws IOException {
@@ -306,8 +327,12 @@ public class TT {
 		final int found = is.read(n);
 		char[] nc = new char[found];
 		for (int i = offset; i < found; ++i)
-			nc[i - offset] = (char) (n[i] < 0 ? 256 + n[i] : n[i]);
+			nc[i - offset] = charise(n[i]);
 		return nc;
+	}
+
+	private static char charise(byte by) {
+		return (char) (by < 0 ? 256 + by : by);
 	}
 
 	private static class Score {
@@ -358,8 +383,8 @@ public class TT {
 		return trimAtNull(new String(b, ptr, i));
 	}
 
-	private static String cstring(InputStream is, int nameLength) throws IOException {
-		return trimAtNull(new String(read(is, nameLength), CHARSET));
+	static String cstring(InputStream is, int nameLength) throws IOException {
+		return trimAtNull(new String(IOHelper.read(is, nameLength), CHARSET));
 	}
 
 	private static String trimAtNull(final String s) {
@@ -369,17 +394,11 @@ public class TT {
 		return s.substring(0, ind);
 	}
 
-	/** reads exactly the requested number of bytes or throws */
-	private static byte[] read(InputStream is, final int cnt) throws IOException {
-		final byte[] ret = new byte[cnt];
-		int done = 0;
-		while (done != cnt) {
-			final int read = is.read(ret, done, cnt - done);
-			if (-1 == read)
-				throw new IOException("End of stream found trying to read " + (cnt - done) + "/" + cnt + " bytes");
-			done += read;
-		}
-		return ret;
+	public static char[] decode(byte[] in) {
+		char[] cin = new char[in.length];
+		for (int i = 0; i < in.length; ++i)
+			cin[i] = charise(in[i]);
+		return decode(cin);
 	}
 
 	static char[] decode(char[] in) {
