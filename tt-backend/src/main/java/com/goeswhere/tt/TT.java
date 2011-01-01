@@ -108,7 +108,7 @@ public class TT {
 		final int packetLength = 436;
 		int ptr = 0;
 		List<ListElement> l = Lists.newArrayListWithCapacity(ESTIMATED_TRACKS_PER_PAGE);
-		while (ptr != c.length - packetLength) {
+		while (ptr < c.length - packetLength) {
 			int no = readTwo(c, ptr + 24);
 			boolean costs = c[ptr + packetLength] != 0;
 			l.add(new ListElement(no, costs));
@@ -165,13 +165,15 @@ public class TT {
 	private static List<Score> getScores(final OutputStream os,
 			final InputStream is, int track, int truck) throws IOException {
 		requestScores(os, track, truck);
-		char[] nc = readPacket(is, 63);
+		return readScores(is);
+	}
 
-		try {
-			return parse(decode(nc));
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+	static List<Score> readScores(final InputStream is) throws IOException {
+		final int magicOffset = 61;
+
+		final int length = readTwo(is);
+		skip(is, magicOffset);
+		return parse(decode(IOHelper.read(is, length - magicOffset)));
 	}
 
 	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
@@ -324,29 +326,6 @@ public class TT {
 
 	private static char charise(byte by) {
 		return (char) (by < 0 ? 256 + by : by);
-	}
-
-	private static class Score {
-        private final String name;
-        private final double time;
-        private final boolean hard;
-        private final boolean online;
-		private final int pos;
-
-        public Score(int pos, String name, double time, boolean hard, boolean online) {
-        	this.pos = pos;
-			this.name = name;
-            this.time = time;
-            this.hard = hard;
-            this.online = online;
-        }
-
-        @Override
-        public String toString() {
-            return "Score [name=" + name + ", time=" + time + ", pos=" + pos + ","
-            + (hard ? " (hard)" : "")
-            + (online ? " (online)" : "") + "]";
-        }
 	}
 
 	private static List<Score> parse(char[] b) {

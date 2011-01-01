@@ -10,6 +10,7 @@ import static org.junit.Assert.fail;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.Test;
@@ -76,6 +77,18 @@ public class ParseTest {
 				final Set<Integer> s = Sets.newHashSet();
 				TT.readFreeTracks(is, s);
 				assertEquals(ImmutableSet.of(1, 5, 0, 3, 423, 4, 6, 7, 8, 9, 10), s);
+				assertEquals(-1, is.read());
+			}
+		});
+	}
+
+	@Test
+	public void testScores() throws IOException {
+		runWithStreams("scores.tst", new RunWithStream() {
+			@Override
+			public void run(InputStream is) throws IOException {
+				List<Score> scores = TT.readScores(is);
+				System.out.println(scores);
 				assertEquals(-1, is.read());
 			}
 		});
