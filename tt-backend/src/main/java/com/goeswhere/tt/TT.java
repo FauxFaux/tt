@@ -51,7 +51,6 @@ public class TT {
 			final int pages = 1;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
 			write(os, SortOrder.DEFAULT.forPage(0));
-			consumeToFile(is, "defaulttracks.tst");
 			readFreeTracks(is, tracks);
 			for (int i = 0; i < pages; ++i) {
 				Thread.sleep(100);
@@ -87,16 +86,12 @@ public class TT {
 	}
 
 	static void readFreeTracks(final InputStream is, final Collection<Integer> tracks) throws IOException {
-		char[] pkt = readPacket(is, 3);
-		try {
-			for (ListElement l : parseListPacket(decode(pkt)))
-				if (!l.costs)
-					tracks.add(l.no);
-		} catch (RuntimeException e) {
-			System.out.println("BOOOM");
-			format(pkt, pkt.length);
-			throw e;
-		}
+		final int length = readTwo(is) - 1;
+		skip(is, 1);
+		byte[] pkt = IOHelper.read(is, length);
+		for (ListElement l : parseListPacket(decode(pkt)))
+			if (!l.costs)
+				tracks.add(l.no);
 	}
 
 	static void discardWelcomePacket(final IOHelper h) throws IOException {
@@ -110,13 +105,14 @@ public class TT {
 	}
 
 	private static List<ListElement> parseListPacket(char[] c) {
-		int ptr = 0x18;
+		final int packetLength = 436;
+		int ptr = 0;
 		List<ListElement> l = Lists.newArrayListWithCapacity(ESTIMATED_TRACKS_PER_PAGE);
-		while (ptr < c.length - 1) {
-			int no = readTwo(c, ptr);
-			boolean costs = c[0x1a0 + ptr] != 0;
+		while (ptr != c.length - packetLength) {
+			int no = readTwo(c, ptr + 24);
+			boolean costs = c[ptr + packetLength] != 0;
 			l.add(new ListElement(no, costs));
-			ptr += 0x1b4;
+			ptr += packetLength;
 		}
 		return l;
 	}
@@ -274,7 +270,6 @@ public class TT {
 			out.printf("%x", i);
 
 		out.println();
-		final StringBuilder array = new StringBuilder(len * 10).append("char[] c = new char[] { ");
 		for (int l = 0; l <= len / WIDTH; ++l) {
 			out.printf("%5x  ", l*WIDTH);
 			for (int i = 0; i < WIDTH; ++i) {
@@ -282,9 +277,6 @@ public class TT {
 				int ind = l*WIDTH+i;
 				if (ind < len) {
 					out.printf("%2x ", first[ind]);
-					array.append("(char)0x")
-						.append(String.format("%02x", first[ind]))
-						.append(", ");
 				}
 				else
 					out.print("   ");
@@ -295,10 +287,7 @@ public class TT {
 			out.print("  ");
 			printAscii(first, len, WIDTH, l, false, out);
 			out.println();
-			array.append("\n                        ");
 		}
-		array.append("};");
-		out.println(array);
 	}
 
 	private static void printAscii(byte[] first, int len, final int WIDTH, int l, boolean doBreak, PrintStream out) {
@@ -327,7 +316,7 @@ public class TT {
 	private static char[] readPacket(final InputStream is, int offset) throws IOException {
 		byte[] n = new byte[900000];
 		final int found = is.read(n);
-		char[] nc = new char[found];
+		char[] nc = new char[found - offset];
 		for (int i = offset; i < found; ++i)
 			nc[i - offset] = charise(n[i]);
 		return nc;
