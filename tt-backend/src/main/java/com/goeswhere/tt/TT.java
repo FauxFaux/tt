@@ -1,10 +1,8 @@
 package com.goeswhere.tt;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.sql.SQLException;
@@ -16,6 +14,9 @@ import java.util.Map;
 import com.google.common.collect.Lists;
 
 public class TT {
+
+	private static final int PORT = 23000;
+	private static final int ESTIMATED_TRACKS_PER_PAGE = 25;
 
 	private static class ListElement {
 		private final int no;
@@ -34,8 +35,7 @@ public class TT {
 
 	public static void main(String[] args) throws IOException, InterruptedException, SQLException, ClassNotFoundException {
 		final DAO dao = TTLevelCache.dao();
-		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), 23000);
-		final PrintStream failed = new PrintStream(new FileOutputStream("wrong.rej", true));
+		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), PORT);
 
 		try {
 			final OutputStream os = s.getOutputStream();
@@ -43,7 +43,7 @@ public class TT {
 			setup(os, is);
 
 			final int pages = 17;
-			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * 25);
+			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
 			write(os, SortOrder.DEFAULT.forPage(0));
 			readFreeTracks(is, tracks);
 			for (int i = 0; i < pages; ++i) {
@@ -56,7 +56,7 @@ public class TT {
 			for (int i = 0; i < tracks.size(); ++i) {
 				Thread.sleep(100);
 				int id = tracks.get(i);
-				final List<Score> scores = getScores(failed, os, is, id, 0);
+				final List<Score> scores = getScores(os, is, id, 0);
 				final List<Object[]> times = Lists.newArrayListWithCapacity(scores.size());
 				int pos = 0;
 				for (Score sc : scores) {
@@ -69,7 +69,6 @@ public class TT {
 
 		} finally {
 			s.close();
-			failed.close();
 		}
 	}
 
@@ -123,7 +122,7 @@ public class TT {
 
 	/** @param track As displayed; apart from home screen.
 	 * @param truck 0 for free truck, upwards. */
-	private static List<Score> getScores(final PrintStream failed, final OutputStream os,
+	private static List<Score> getScores(final OutputStream os,
 			final InputStream is, int track, int truck) throws IOException {
 		requestScores(os, track, truck);
 		char[] nc = readPacket(is, 63);
@@ -131,10 +130,6 @@ public class TT {
 		try {
 			return parse(decode(nc));
 		} catch (Exception e) {
-			e.printStackTrace(failed);
-			for (char c : nc)
-				failed.print((int)c + ", ");
-			failed.flush();
 			throw new RuntimeException(e);
 		}
 	}
