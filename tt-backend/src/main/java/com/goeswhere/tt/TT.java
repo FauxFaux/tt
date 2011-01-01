@@ -1,22 +1,25 @@
 package com.goeswhere.tt;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 
 public class TT {
 
 	private static final int PORT = 23000;
 	private static final int ESTIMATED_TRACKS_PER_PAGE = 25;
+	private static final Charset CHARSET = Charsets.UTF_8;
 
 	private static class ListElement {
 		private final int no;
@@ -42,7 +45,7 @@ public class TT {
 			final InputStream is = s.getInputStream();
 			setup(os, is);
 
-			final int pages = 17;
+			final int pages = 1;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
 			write(os, SortOrder.DEFAULT.forPage(0));
 			readFreeTracks(is, tracks);
@@ -52,6 +55,13 @@ public class TT {
 				readFreeTracks(is, tracks);
 				System.out.printf("Stage 1 / 2: %3d%% done\n", (int)(100 * (i+1) / (float)pages));
 			}
+
+			for (int id : tracks)
+				if (!dao.hasNameFor(id)) {
+					System.out.println("Stage 2/3: Fetching name for " + id + "...");
+					requestDetails(os, id);
+					dao.saveTrackName(id, readName(is));
+				}
 
 			for (int i = 0; i < tracks.size(); ++i) {
 				Thread.sleep(100);
@@ -64,7 +74,7 @@ public class TT {
 				}
 
 				dao.saveTrackTimes(id, times);
-				System.out.printf("Stage 2 / 2: %3d%% done, eta %s.\n", (int)(100. * (i+1) / tracks.size()));
+				System.out.printf("Stage 3 / 3: %3d%% done.\n", (int)(100. * (i+1) / tracks.size()));
 			}
 
 		} finally {
@@ -97,20 +107,36 @@ public class TT {
 		return l;
 	}
 
-	private static void readNamesPacket(char[] q, Map<Integer, String> names) {
-		int ptr = 0;
-		while (ptr != q.length) {
-			int length = readTwo(q, ptr);
-			ptr += 2;
-			if (0 == length)
-				break;
-			names.put(readTwo(q, ptr+8), cstring(q, ptr+0x28, 16));
-			ptr += length;
-		}
+	static String readName(InputStream is) throws IOException {
+		final int nameLocation = 0x28;
+		final int nameLength = 16;
+
+		final int length = readTwo(is);
+		skip(is, nameLocation);
+		final String ret = cstring(is, nameLength);
+		skip(is, length - nameLength - nameLocation);
+		return ret;
+	}
+
+	private static void skip(InputStream is, long length) throws IOException {
+		long rem = length;
+		while (rem != 0)
+			rem -= is.skip(rem);
 	}
 
 	private static int readTwo(char[] q, int ptr) {
 		return (q[ptr + 1] * 0x100) + q[ptr];
+	}
+
+	private static int readTwo(InputStream is) throws IOException {
+		return read(is) + read(is) * 0x100;
+	}
+
+	private static int read(InputStream is) throws IOException {
+		int read = is.read();
+		if (-1 == read)
+			throw new IOException("End of stream");
+		return read;
 	}
 
 	static void format(char[] c, int length) {
@@ -137,6 +163,12 @@ public class TT {
 	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
 		byte[] req = new byte[] { 0x09, 0, 0x19, (byte) (track & 0xff), (byte) ((track >> 8) & 0xff),
 				(byte) ((track >> 16) & 0xff), (byte) ((track >> 24) & 0xff), (byte) truck, 0, 0, 0 };
+		write(os, req);
+	}
+
+	private static void requestDetails(final OutputStream os, int track) throws IOException {
+		byte[] req = new byte[] { 0x06, 0, 0x0a, 0x01, (byte) (track & 0xff), (byte) ((track >> 8) & 0xff),
+				(byte) ((track >> 16) & 0xff), (byte) ((track >> 24) & 0xff), };
 		write(os, req);
 	}
 
@@ -190,6 +222,16 @@ public class TT {
 		byte[] first = new byte[90000];
 		int len = is.read(first);
 		debugOutput(first, len);
+	}
+
+	private static void consumeToFile(final InputStream is, String name) throws IOException {
+		byte[] first = new byte[90000];
+		int len = is.read(first);
+		final FileOutputStream fos = new FileOutputStream(name);
+		fos.write(first, 0, len);
+		System.out.println("Written " + len + " bytes to " + name);
+		fos.flush();
+		fos.close();
 	}
 
 	private static void debugOutput(byte[] first, int len) {
@@ -313,11 +355,31 @@ public class TT {
 	}
 
 	private static String cstring(char[] b, int ptr, int i) {
-		final String s = new String(b, ptr, i);
+		return trimAtNull(new String(b, ptr, i));
+	}
+
+	private static String cstring(InputStream is, int nameLength) throws IOException {
+		return trimAtNull(new String(read(is, nameLength), CHARSET));
+	}
+
+	private static String trimAtNull(final String s) {
 		final int ind = s.indexOf(0);
 		if (-1 == ind)
 			return s;
 		return s.substring(0, ind);
+	}
+
+	/** reads exactly the requested number of bytes or throws */
+	private static byte[] read(InputStream is, final int cnt) throws IOException {
+		final byte[] ret = new byte[cnt];
+		int done = 0;
+		while (done != cnt) {
+			final int read = is.read(ret, done, cnt - done);
+			if (-1 == read)
+				throw new IOException("End of stream found trying to read " + (cnt - done) + "/" + cnt + " bytes");
+			done += read;
+		}
+		return ret;
 	}
 
 	static char[] decode(char[] in) {

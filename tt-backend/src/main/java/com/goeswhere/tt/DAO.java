@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import com.google.common.collect.ImmutableList;
 
@@ -45,6 +46,7 @@ public class DAO implements Closeable {
 		}
 	}
 
+	/** @throws NoSuchElementException if no elements returned */
 	@SuppressWarnings("unchecked")
 	<T> T lookup(String sql, Object[] args) {
 		try {
@@ -54,7 +56,7 @@ public class DAO implements Closeable {
 				final ResultSet rs = ps.executeQuery();
 				try {
 					if (!rs.next())
-						throw new SQLRuntimeException("Expecting records to be returned");
+						throw new NoSuchElementException("Expecting records to be returned");
 					return (T)rs.getObject(1);
 				} finally {
 					rs.close();
@@ -72,8 +74,17 @@ public class DAO implements Closeable {
 			ps.setObject(i + 1, args[i]);
 	}
 
-	String nameTrack(int id) {
-		return lookup("select name from track_names where track=?", new Object[] { id });
+	boolean hasNameFor(int trackId) {
+		try {
+			lookup("select null from track_names where track=?", new Object[] { trackId });
+			return true;
+		} catch (NoSuchElementException e) {
+			return false;
+		}
+	}
+	public void saveTrackName(int id, String name) {
+		executeUpdate("insert into track_names (track,name) values (?,?)",
+				new Object[] { id, name });
 	}
 
 	public void saveTrackTimes(int id, List<Object[]> args) {
