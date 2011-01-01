@@ -4,3 +4,5 @@
 target/
 sample.db
 wrong.rej
+*.7z
+Temp.java

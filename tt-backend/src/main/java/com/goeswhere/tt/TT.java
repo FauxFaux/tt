@@ -59,7 +59,7 @@ public class TT {
 			long start = new Date().getTime();
 
 			for (int i = 0; i < tracks.size(); ++i) {
-				Thread.sleep(1000);
+				Thread.sleep(100);
 				int id = tracks.get(i);
 				final List<Score> scores = getScores(failed, os, is, id, 0);
 				final List<Object[]> times = Lists.newArrayListWithCapacity(scores.size());
@@ -81,9 +81,16 @@ public class TT {
 	}
 
 	private static void readFreeTracks(final InputStream is, final List<Integer> tracks) throws IOException {
-		for (ListElement l : parseListPacket(decode(readPacket(is, 3))))
-			if (!l.costs)
-				tracks.add(l.no);
+		char[] pkt = readPacket(is, 3);
+		try {
+			for (ListElement l : parseListPacket(decode(pkt)))
+				if (!l.costs)
+					tracks.add(l.no);
+		} catch (RuntimeException e) {
+			System.out.println("BOOOM");
+			format(pkt, pkt.length);
+			throw e;
+		}
 	}
 
 	private static List<ListElement> parseListPacket(char[] c) {
@@ -114,7 +121,7 @@ public class TT {
 		return (q[ptr + 1] * 0x100) + q[ptr];
 	}
 
-	private static void format(char[] c, int length) {
+	static void format(char[] c, int length) {
 		byte[] b = new byte[length];
 		for (int i = 0; i < length; ++i)
 			b[i] = (byte) c[i];
@@ -358,7 +365,7 @@ public class TT {
 		return s.substring(0, ind);
 	}
 
-	private static char[] decode(char[] in) {
+	static char[] decode(char[] in) {
 		char[] out = new char[in.length * 20];
 
 		int outptr = 0;
