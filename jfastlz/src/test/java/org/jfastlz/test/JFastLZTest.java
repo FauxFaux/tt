@@ -23,6 +23,7 @@ import org.jfastlz.JFastLZLevel;
 import org.jfastlz.JFastLZPack;
 import org.jfastlz.JFastLZUnpack;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -46,6 +47,7 @@ public class JFastLZTest {
   }
 
   @Test
+  @Ignore
   public void testPackUnpackUsingFiles() throws Exception {
 
     File dir = new File(TEST_FILES_DIR);
