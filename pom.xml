@@ -12,6 +12,7 @@
 
 	<modules>
 		<module>tt-backend</module>
+		<module>jfastlz</module>
 	</modules>
 
 	<build>
