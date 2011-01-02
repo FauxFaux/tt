@@ -2,7 +2,6 @@
 .settings
 .classpath
 target/
-sample.db
-wrong.rej
+tt.db
 *.7z
 Temp.java

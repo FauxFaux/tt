@@ -47,7 +47,7 @@ public class TT {
 			final IOHelper h = IOHelper.loggingToStdErr(is);
 			setup(os, h);
 
-			final int pages = 1;
+			final int pages = 17;
 			final List<Integer> tracks = Lists.newArrayListWithExpectedSize(pages * ESTIMATED_TRACKS_PER_PAGE);
 			write(os, SortOrder.DEFAULT.forPage(0));
 			readFreeTracks(is, tracks);

@@ -39,7 +39,7 @@ public class TTLevelCache {
 
 	static DAO dao() throws SQLException, ClassNotFoundException {
 		Class.forName("org.sqlite.JDBC");
-		return new DAO(DriverManager.getConnection("jdbc:sqlite:sample.db"));
+		return new DAO(DriverManager.getConnection("jdbc:sqlite:tt.db"));
 	}
 
 	private static String cstring(InputStream fis) throws IOException {
