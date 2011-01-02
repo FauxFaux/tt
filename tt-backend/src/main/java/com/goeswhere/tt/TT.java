@@ -73,7 +73,7 @@ public class TT {
 				final List<Object[]> times = Lists.newArrayListWithCapacity(scores.size());
 				int pos = 0;
 				for (Score sc : scores) {
-					times.add(new Object[] { id, ++pos, sc.name, sc.time, sc.hard } );
+					times.add(new Object[] { id, ++pos, sc.name, sc.time, sc.hard, sc.when } );
 				}
 
 				dao.saveTrackTimes(id, times);
@@ -332,10 +332,12 @@ public class TT {
 			ptr += 16;
 			final double time = dword(b, ptr) / 120.;
 			ptr += 4;
-			final boolean hard = b[ptr + 6] != 0;
-			final boolean online = b[ptr + 7] != 0;
-			ptr += 12;
-			ret.add(new Score(++pos, name, time, hard, online));
+			final long when = dword(b, ptr) * 720 * 1000;
+			ptr += 4;
+			final boolean hard = b[ptr + 2] != 0;
+			final boolean online = b[ptr + 3] != 0;
+			ptr += 8;
+			ret.add(new Score(++pos, name, time, when, hard, online));
 		}
 		return ret;
 	}

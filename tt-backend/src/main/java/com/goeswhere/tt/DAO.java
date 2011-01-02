@@ -91,8 +91,8 @@ public class DAO implements Closeable {
 		final TransactionManager tm = new TransactionManager();
 		try {
 			executeUpdate("delete from highscore where track=?", new Object[] { id });
-			executeUpdate("insert into highscore (track, pos, player, length, hard)" +
-					" values (?,?,?,?,?)", args);
+			executeUpdate("insert into highscore (track, pos, player, length, hard, taken)" +
+					" values (?,?,?,?,?,?)", args);
 			tm.commit();
 		} finally {
 			tm.close();
