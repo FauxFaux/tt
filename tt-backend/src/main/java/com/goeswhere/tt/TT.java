@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import com.google.common.base.Charsets;
@@ -172,7 +173,10 @@ public class TT {
 
 		final int length = readTwo(is);
 		skip(is, magicOffset);
-		return parseScore(decode(IOHelper.read(is, length - magicOffset)));
+		final int toRead = length - magicOffset;
+		if (0 == toRead)
+			return Collections.emptyList();
+		return parseScore(decode(IOHelper.read(is, toRead)));
 	}
 
 	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
