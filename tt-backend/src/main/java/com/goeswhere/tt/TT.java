@@ -148,11 +148,11 @@ public class TT {
 		return read;
 	}
 
-	public static void format(char[] c) {
+	static void format(char[] c) {
 		format(c, c.length);
 	}
 
-	static void format(char[] c, int length) {
+	private static void format(char[] c, int length) {
 		byte[] b = new byte[length];
 		for (int i = 0; i < length; ++i)
 			b[i] = (byte) c[i];
