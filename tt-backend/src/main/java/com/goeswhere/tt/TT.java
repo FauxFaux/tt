@@ -315,15 +315,6 @@ public class TT {
 			out.print(" ");
 	}
 
-	private static char[] readPacket(final InputStream is, int offset) throws IOException {
-		byte[] n = new byte[900000];
-		final int found = is.read(n);
-		char[] nc = new char[found - offset];
-		for (int i = offset; i < found; ++i)
-			nc[i - offset] = charise(n[i]);
-		return nc;
-	}
-
 	private static char charise(byte by) {
 		return (char) (by < 0 ? 256 + by : by);
 	}
