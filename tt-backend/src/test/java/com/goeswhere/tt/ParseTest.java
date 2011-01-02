@@ -88,7 +88,7 @@ public class ParseTest {
 			@Override
 			public void run(InputStream is) throws IOException {
 				List<Score> scores = TT.readScores(is);
-				System.out.println(scores);
+				assertEquals(499, scores.size()); // not correct, but close enough
 				assertEquals(-1, is.read());
 			}
 		});

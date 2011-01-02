@@ -9,7 +9,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -173,7 +172,7 @@ public class TT {
 
 		final int length = readTwo(is);
 		skip(is, magicOffset);
-		return parse(decode(IOHelper.read(is, length - magicOffset)));
+		return parseScore(decode(IOHelper.read(is, length - magicOffset)));
 	}
 
 	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
@@ -319,11 +318,12 @@ public class TT {
 		return (char) (by < 0 ? 256 + by : by);
 	}
 
-	private static List<Score> parse(char[] b) {
-		final List<Score> ret = new ArrayList<Score>(b.length / 32);
+	private static List<Score> parseScore(char[] b) {
+		final int packetLength = 32;
+		final List<Score> ret = Lists.newArrayListWithCapacity(b.length / packetLength);
 		int ptr = 0;
 		int pos = 0;
-		while (ptr < b.length - 30) {
+		while (ptr <= b.length - packetLength) {
 			final String name = cstring(b, ptr, 16);
 			ptr += 16;
 			final double time = dword(b, ptr) / 120.;
@@ -337,7 +337,7 @@ public class TT {
 	}
 
 	private static long dword(char[] b, int ptr) {
-		return (b[ptr] + (b[ptr + 1] << 8));
+		return b[ptr] + (b[ptr + 1] << 8) + (b[ptr + 2] << 16)  + (b[ptr + 3] << 24);
 	}
 
 	private static String cstring(char[] b, int ptr, int i) {
