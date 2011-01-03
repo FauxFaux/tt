@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
@@ -40,6 +41,8 @@ public class TT {
 
 	public static void main(String[] args) throws IOException, InterruptedException, SQLException, ClassNotFoundException {
 		final DAO dao = TTLevelCache.dao();
+		final Set<String> names = dao.names();
+
 		final Socket s = new Socket(InetAddress.getByName("truck.gravitysensation.com"), PORT);
 
 		try {
@@ -69,7 +72,7 @@ public class TT {
 			for (int i = 0; i < tracks.size(); ++i) {
 				Thread.sleep(100);
 				int id = tracks.get(i);
-				final List<Score> scores = getScores(os, is, id, 0);
+				final List<Score> scores = getScores(os, is, id, 0, names);
 				final List<Object[]> times = Lists.newArrayListWithCapacity(scores.size());
 				int pos = 0;
 				for (Score sc : scores) {
@@ -163,20 +166,22 @@ public class TT {
 	/** @param track As displayed; apart from home screen.
 	 * @param truck 0 for free truck, upwards. */
 	private static List<Score> getScores(final OutputStream os,
-			final InputStream is, int track, int truck) throws IOException {
+			final InputStream is, int track, int truck, Set<String> nicks) throws IOException {
 		requestScores(os, track, truck);
-		return readScores(is);
+		return readScores(is, nicks);
 	}
 
-	static List<Score> readScores(final InputStream is) throws IOException {
+	static List<Score> readScores(final InputStream is, Set<String> nicks) throws IOException {
+		skip(is, 7); // encryption header, pfft.
 		final int magicOffset = 61;
 
 		final int length = readTwo(is);
 		skip(is, magicOffset);
+
 		final int toRead = length - magicOffset;
 		if (0 == toRead)
 			return Collections.emptyList();
-		return parseScore(decode(IOHelper.read(is, toRead)));
+		return parseScore(GuessDecrypt.guessEncrypted(IOHelper.read(is, toRead), nicks));
 	}
 
 	private static void requestScores(final OutputStream os, int track, int truck) throws IOException {
@@ -212,8 +217,8 @@ public class TT {
 	private static void setup(final OutputStream os, IOHelper h) throws IOException {
 
 		final byte[] initial = new byte[] {
-				0x0d, 0x00, 0x04, 0x7e, (byte) 0xc1, 0x36, 0x65, 0x10,
-				0x00, 0x00, 0x00, (byte) 0xfa, 0x0d, 0x08, 0x0a };
+				0x0d, 0x00, 0x04, (byte) 0xd4, (byte) 0x2b, 0x68, 0x34, 0x12,
+				0x00, 0x00, 0x00, (byte) 0xf3, 0x01, (byte) 0xc8, 0x01 };
 		final byte[] login = new byte[] { 0x09, 00, 0x1a, 00, 00, 00, 00, 00, 00, 00, 00, };
 		final byte[] privacies = new byte[] { 0x54, 00, 0x05, 0x65, 00, 00, 00, 00, 00,
 				00,
@@ -237,7 +242,7 @@ public class TT {
 		os.flush();
 	}
 
-	private static void consumeAvailable(final InputStream is) throws IOException {
+	static void consumeAvailable(final InputStream is) throws IOException {
 		byte[] first = new byte[90000];
 		int len = is.read(first);
 		debugOutput(first, len);
@@ -318,7 +323,7 @@ public class TT {
 			out.print(" ");
 	}
 
-	private static char charise(byte by) {
+	static char charise(byte by) {
 		return (char) (by < 0 ? 256 + by : by);
 	}
 

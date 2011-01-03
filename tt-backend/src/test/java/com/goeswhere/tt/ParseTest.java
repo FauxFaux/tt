@@ -83,12 +83,21 @@ public class ParseTest {
 	}
 
 	@Test
-	public void testScores() throws IOException {
-		runWithStreams("scores.tst", new RunWithStream() {
+	public void testScores2() throws IOException {
+		runScores("scores2.tst", 114);
+	}
+
+	@Test
+	public void testScores3() throws IOException {
+		runScores("scores3.tst", 116);
+	}
+
+	private void runScores(final String file, final int count) throws IOException {
+		runWithStreams(file, new RunWithStream() {
 			@Override
 			public void run(InputStream is) throws IOException {
-				List<Score> scores = TT.readScores(is);
-				assertEquals(499, scores.size()); // not correct, but close enough
+				List<Score> scores = TT.readScores(is, SampleNicks.NICKS);
+				assertEquals(count, scores.size()); // not correct, but close enough
 				assertEquals(-1, is.read());
 			}
 		});

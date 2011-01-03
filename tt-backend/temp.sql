@@ -33,3 +33,5 @@ select track n,name,pos,first,you,(you/first-1)*100 pace from (select a.track,(s
 select track n,name,(select pos from highscore b where player='[UWCS] Faux' and a.track=b.track) pos,
 count(distinct length)-coalesce((select pos from highscore b where player='[UWCS] Faux' and a.track=b.track),0) cnt 
 from highscore a inner join track_names using (track) group by track order by cnt desc limit 30
+
+select distinct player from highscore

@@ -8,8 +8,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 public class DAO implements Closeable {
 	private final Connection conn;
@@ -82,6 +84,23 @@ public class DAO implements Closeable {
 			return false;
 		}
 	}
+
+	Set<String> names() {
+		final Set<String> ret = Sets.newHashSet();
+		try {
+			final ResultSet rs = stat.executeQuery("select distinct player from highscore");
+			try {
+				while (rs.next())
+					ret.add(rs.getString(1));
+			} finally {
+				rs.close();
+			}
+		} catch (SQLException e) {
+			throw new SQLRuntimeException(e);
+		}
+		return ret;
+	}
+
 	public void saveTrackName(int id, String name) {
 		executeUpdate("insert into track_names (track,name) values (?,?)",
 				new Object[] { id, name });
